@@ -11,6 +11,7 @@
 #include <windows.h>
 #include <algorithm>
 #include <limits>
+#include <WebView2EnvironmentOptions.h>
 
 #pragma comment(lib, "Urlmon.lib")
 #pragma warning(disable: 4996)		//disable warning about wcscpy vs. wcscpy_s
@@ -124,9 +125,24 @@ Photino::Photino(PhotinoInitParams* initParams)
 
 	}
 
+	_userAgent = NULL;
+	if (initParams->UserAgentWide != NULL)
+	{
+		_userAgent = new wchar_t[wcslen(initParams->UserAgentWide) + 1];
+		if (_userAgent == NULL) exit(0);
+		wcscpy(_userAgent, initParams->UserAgentWide);
+	}
+
+
 	_contextMenuEnabled = initParams->ContextMenuEnabled;
 	_devToolsEnabled = initParams->DevToolsEnabled;
 	_grantBrowserPermissions = initParams->GrantBrowserPermissions;
+	_mediaAutoplayEnabled = initParams->MediaAutoplayEnabled;
+	_fileSystemAccessEnabled = initParams->FileSystemAccessEnabled;
+	_webSecurityEnabled = initParams->WebSecurityEnabled;
+	_javascriptClipboardAccessEnabled = initParams->JavascriptClipboardAccessEnabled;
+	_mediaStreamEnabled = initParams->MediaStreamEnabled;
+	_smoothScrollingEnabled = initParams->SmoothScrollingEnabled;
 
 	_zoom = initParams->Zoom;
 	_minWidth = initParams->MinWidth;
@@ -449,6 +465,41 @@ void Photino::GetGrantBrowserPermissions(bool* grant)
 	*grant = _grantBrowserPermissions;
 }
 
+AutoString Photino::GetUserAgent()
+{
+	return this->_userAgent;
+}
+
+void Photino::GetMediaAutoplayEnabled(bool* enabled)
+{
+	*enabled = this->_mediaAutoplayEnabled;
+}
+
+void Photino::GetFileSystemAccessEnabled(bool* enabled)
+{
+	*enabled = this->_fileSystemAccessEnabled;
+}
+
+void Photino::GetWebSecurityEnabled(bool* enabled)
+{
+	*enabled = this->_webSecurityEnabled;
+}
+
+void Photino::GetJavascriptClipboardAccessEnabled(bool* enabled)
+{
+	*enabled = this->_javascriptClipboardAccessEnabled;
+}
+
+void Photino::GetMediaStreamEnabled(bool* enabled)
+{
+	*enabled = this->_mediaStreamEnabled;
+}
+
+void Photino::GetSmoothScrollingEnabled(bool* enabled)
+{
+	*enabled = this->_smoothScrollingEnabled;
+}
+
 AutoString Photino::GetIconFileName()
 {
 	return this->_iconFileName;
@@ -571,11 +622,6 @@ void Photino::SetFullScreen(bool fullScreen)
 		style &= (~WS_POPUP);
 	}
 	SetWindowLongPtr(_hWnd, GWL_STYLE, style);
-}
-
-void Photino::SetGrantBrowserPermissions(bool grant)
-{
-	_grantBrowserPermissions = grant;
 }
 
 void Photino::SetIconFile(AutoString filename)
@@ -766,7 +812,35 @@ void Photino::AttachWebView()
 	size_t runtimePathLen = wcsnlen(_webview2RuntimePath, _countof(_webview2RuntimePath));
 	PCWSTR runtimePath = runtimePathLen > 0 ? &_webview2RuntimePath[0] : nullptr;
 
-	HRESULT envResult = CreateCoreWebView2EnvironmentWithOptions(runtimePath, _temporaryFilesPath, nullptr,
+	//TODO: Implement special startup strings.
+	//https://peter.sh/experiments/chromium-command-line-switches/
+	//https://learn.microsoft.com/en-us/dotnet/api/microsoft.web.webview2.core.corewebview2environmentoptions.additionalbrowserarguments?view=webview2-dotnet-1.0.1938.49&viewFallbackFrom=webview2-dotnet-1.0.1901.177view%3Dwebview2-1.0.1901.177
+	//https://www.chromium.org/developers/how-tos/run-chromium-with-flags/
+	//Add together all 7 special startup strings, plus the generic one passed by the user to make one big string. Try not to duplicate anything. Separate with spaces.
+	
+	std::wstring startupString = L"";
+	if (_userAgent != NULL && wcslen(_userAgent) > 0)
+		startupString += L"--user-agent=\"" + std::wstring(_userAgent) + L"\" ";
+	if (_mediaAutoplayEnabled) 
+		startupString += L"--autoplay-policy=no-user-gesture-required ";
+	if (_fileSystemAccessEnabled) 
+		startupString += L"--allow-file-access-from-files ";
+	if (!_webSecurityEnabled)
+		startupString += L"--disable-web-security ";
+	if (_javascriptClipboardAccessEnabled)
+		startupString += L"--enable-javascript-clipboard-access ";
+	if (_mediaStreamEnabled)
+		startupString += L"--enable-usermedia-screen-capturing ";
+	if (!_smoothScrollingEnabled)
+		startupString += L"--disable-smooth-scrolling ";
+	//if (_customStartupString != NULL)
+	//	startupString += _customStartupString;	//e.g.--hide-scrollbars
+
+	auto options = Microsoft::WRL::Make<CoreWebView2EnvironmentOptions>();
+	if (startupString.length() > 0)
+		options->put_AdditionalBrowserArguments(startupString.c_str());
+
+	HRESULT envResult = CreateCoreWebView2EnvironmentWithOptions(runtimePath, _temporaryFilesPath, options.Get(),
 		Callback<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler>(
 			[&](HRESULT result, ICoreWebView2Environment* env) -> HRESULT {
 				if (result != S_OK) { return result; }
