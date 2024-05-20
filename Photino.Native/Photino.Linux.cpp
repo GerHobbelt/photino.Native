@@ -11,6 +11,7 @@
 #include <sstream>
 #include <iomanip>
 #include <libnotify/notify.h>
+#include <dlfcn.h>	//for dynamically calling functions from shared libraries
 
 /* --- PRINTF_BINARY_FORMAT macro's --- */
 // #define FMT_BUF_SIZE (CHAR_BIT*sizeof(uintmax_t)+1)
@@ -105,10 +106,19 @@ Photino::Photino(PhotinoInitParams *initParams) : _webview(nullptr)
 	_userAgent = NULL;
 	if (initParams->UserAgent != NULL)
 	{
-		_userAgent = new char[strlen(initParams->StartString) + 1];
+		_userAgent = new char[strlen(initParams->UserAgent) + 1];
 		if (_userAgent == NULL)
 			exit(0);
 		strcpy(_userAgent, initParams->UserAgent);
+	}
+
+	_browserControlInitParameters = NULL;
+	if (initParams->BrowserControlInitParameters != NULL)
+	{
+		_browserControlInitParameters = new char[strlen(initParams->BrowserControlInitParameters) + 1];
+		if (_browserControlInitParameters == NULL)
+			exit(0);
+		strcpy(_browserControlInitParameters, initParams->BrowserControlInitParameters);
 	}
 
 	_contextMenuEnabled = initParams->ContextMenuEnabled;
@@ -186,7 +196,7 @@ Photino::Photino(PhotinoInitParams *initParams) : _webview(nullptr)
 	if (initParams->Chromeless)
 		gtk_window_set_decorated(GTK_WINDOW(_window), false);
 
-	if (initParams->WindowIconFile != NULL && initParams->WindowIconFile != "")
+	if (initParams->WindowIconFile != NULL && strlen(initParams->WindowIconFile) > 0)
 		Photino::SetIconFile(initParams->WindowIconFile);
 
 	if (initParams->CenterOnInitialize)
@@ -251,6 +261,9 @@ Photino::Photino(PhotinoInitParams *initParams) : _webview(nullptr)
 
 	if (_zoom != 100.0)
 		SetZoom(_zoom);
+
+	//gchar* webkitVer = g_strconcat(g_strdup_printf("%d", webkit_get_major_version()), ".", g_strdup_printf("%d", webkit_get_minor_version()), ".", g_strdup_printf("%d", webkit_get_micro_version()), NULL);
+	//Photino::ShowNotification("Web Kit Version", webkitVer);
 }
 
 Photino::~Photino()
@@ -697,7 +710,7 @@ void Photino::Show()
 		// g_object_set(G_OBJECT(settings), "enable-auto-fill-form", TRUE, NULL);
 
 		gtk_container_add(GTK_CONTAINER(_window), _webview);
-
+		
 		WebKitUserScript *script = webkit_user_script_new(
 			"window.__receiveMessageCallbacks = [];"
 			"window.__dispatchMessageCallback = function(message) {"
@@ -749,62 +762,137 @@ void Photino::set_webkit_settings()
 	webkit_settings_set_allow_modal_dialogs(settings, TRUE);							//webkit default: False
 	webkit_settings_set_allow_top_navigation_to_data_urls(settings, TRUE);				//webkit default: False
 	webkit_settings_set_allow_universal_access_from_file_urls(settings, TRUE);			//webkit default: False
-	//webkit_websettings_set_auto_load_images(settings, TRUE);							//webkit default: True
-	//webkit_websettings_set_cursive_font_family(settings, "serif");					//webkit default: "serif"
-	//webkit_websettings_set_default_charset(settings, "iso-8859-1");					//webkit default: "iso-8859-1"
-	//webkit_websettings_set_default_font_family(settings, "sans-serif");				//webkit default: "sans-serif"	
-	//webkit_websettings_set_default_font_size(settings, 16);							//webkit default: 16
-	//webkit_websettings_set_default_monospace_font_size(settings, 13);					//webkit default: 13
+	//webkit_settings_set_auto_load_images(settings, TRUE);							//webkit default: True
+	//webkit_settings_set_cursive_font_family(settings, "serif");					//webkit default: "serif"
+	//webkit_settings_set_default_charset(settings, "iso-8859-1");					//webkit default: "iso-8859-1"
+	//webkit_settings_set_default_font_family(settings, "sans-serif");				//webkit default: "sans-serif"	
+	//webkit_settings_set_default_font_size(settings, 16);							//webkit default: 16
+	//webkit_settings_set_default_monospace_font_size(settings, 13);					//webkit default: 13
 	webkit_settings_set_disable_web_security(settings, !_webSecurityEnabled);			//webkit default: False
-	//webkit_websettings_set_draw_compositing_indicators(settings, FALSE);				//webkit default: False
-	//webkit_websettings_set_enable_accelerated_2d_canvas(settings, FALSE);				//webkit default: False
+	//webkit_settings_set_draw_compositing_indicators(settings, FALSE);				//webkit default: False
+	//webkit_settings_set_enable_accelerated_2d_canvas(settings, FALSE);				//webkit default: False
 	webkit_settings_set_enable_back_forward_navigation_gestures(settings, TRUE);		//webkit default: False
 	//webkit_settings_set_enable_caret_browsing(settings, FALSE);						//webkit default: False
 	webkit_settings_set_enable_developer_extras(settings, _devToolsEnabled);			//webkit default: False
 	//webkit_settings_set_enable_dns_prefetching(settings, FALSE);						//webkit default: False
-	//webkit_websettings_set_enable_encrypted_media(settings, FALSE);					//webkit default: False
-	//webkit_websettings_set_enable_frame_flattening(settings, FALSE);					//webkit default: False
-	//webkit_websettings_set_enable_fullscreen(settings, TRUE);							//webkit default: True
-	//webkit_websettings_set_enable_html5_database(settings, TRUE);						//webkit default: True
-	//webkit_websettings_set_enable_html5_local_storage(settings, TRUE);				//webkit default: True
-	//webkit_websettings_set_enable_hyperlink_auditing(settings, TRUE);					//webkit default: True
-	//webkit_websettings_set_enable_java(settings, FALSE);								//webkit default: False
-	//webkit_websettings_set_enable_javascript(settings, TRUE);							//webkit default: True
-	//webkit_websettings_set_enable_javascript_markup(settings, TRUE);					//webkit default: True
-	//webkit_websettings_set_enable_media(settings, TRUE);								//webkit default: True
+	//webkit_settings_set_enable_encrypted_media(settings, FALSE);					//webkit default: False
+	//webkit_settings_set_enable_frame_flattening(settings, FALSE);					//webkit default: False
+	//webkit_settings_set_enable_fullscreen(settings, TRUE);							//webkit default: True
+	//webkit_settings_set_enable_html5_database(settings, TRUE);						//webkit default: True
+	//webkit_settings_set_enable_html5_local_storage(settings, TRUE);				//webkit default: True
+	//webkit_settings_set_enable_hyperlink_auditing(settings, TRUE);					//webkit default: True
+	//webkit_settings_set_enable_java(settings, FALSE);								//webkit default: False
+	//webkit_settings_set_enable_javascript(settings, TRUE);							//webkit default: True
+	//webkit_settings_set_enable_javascript_markup(settings, TRUE);					//webkit default: True
+	webkit_settings_set_enable_media(settings, TRUE);								//webkit default: True
 	webkit_settings_set_enable_media_capabilities(settings, TRUE);						//webkit default: False
 	webkit_settings_set_enable_media_stream(settings, _mediaStreamEnabled);				//webkit default: False
-	//webkit_websettings_set_enable_mediasource(settings, TRUE);						//webkit default: True
-	//webkit_websettings_set_enable_mock_capture_devices(settings, FALSE);				//webkit default: False
-	//webkit_websettings_set_enable_offline_web_application_cache(settings, TRUE);		//webkit default: True
-	//webkit_websettings_set_enable_page_cache(settings, TRUE);							//webkit default: False
-	//webkit_websettings_set_enable_plugins(settings, FALSE);							//webkit default: False
-	//webkit_websettings_set_enable_private_browsing(settings, FALSE);					//webkit default: False
-	//webkit_websettings_set_enable_resizable_text_areas(settings, TRUE);				//webkit default: True
-	//webkit_websettings_set_enable_site_specific_quirks(settings, TRUE);				//webkit default: True
+	webkit_settings_set_enable_mediasource(settings, TRUE);						//webkit default: True
+	//webkit_settings_set_enable_mock_capture_devices(settings, TRUE);				//webkit default: False
+	//webkit_settings_set_enable_offline_web_application_cache(settings, TRUE);		//webkit default: True
+	//webkit_settings_set_enable_page_cache(settings, TRUE);							//webkit default: False
+	//webkit_settings_set_enable_plugins(settings, FALSE);							//webkit default: False
+	//webkit_settings_set_enable_private_browsing(settings, FALSE);					//webkit default: False
+	//webkit_settings_set_enable_resizable_text_areas(settings, TRUE);				//webkit default: True
+	//webkit_settings_set_enable_site_specific_quirks(settings, TRUE);				//webkit default: True
 	webkit_settings_set_enable_smooth_scrolling(settings, _smoothScrollingEnabled);		//webkit default: True
-	//webkit_websettings_set_enable_spatial_navigation(settings, FALSE);				//webkit default: False
-	//webkit_websettings_set_enable_tabs_to_links(settings, TRUE);						//webkit default: True
-	//webkit_websettings_set_enable_webaudio(settings, TRUE);							//webkit default: True
-	//webkit_websettings_set_enable_webgl(settings, TRUE);								//webkit default: True
-	//webkit_websettings_set_enable_webrtc(settings, FALSE);							//webkit default: False
-	//webkit_websettings_set_enable_write_console_messages_to_stdout(settings, FALSE);	//webkit default: False
-	//webkit_websettings_set_enable_xss_auditor(settings, TRUE);						//webkit default: True
-	//webkit_websettings_set_fantasy_font_family(settings, "serif");					//webkit default: "serif"
-	//webkit_websettings_set_hardware_acceleration_policy(settings, WEBKIT_HARDWARE_ACCELERATION_POLICY_ALWAYS);//webkit default: WEBKIT_HARDWARE_ACCELERATION_POLICY_ALWAYS
+	//webkit_settings_set_enable_spatial_navigation(settings, FALSE);				//webkit default: False
+	//webkit_settings_set_enable_tabs_to_links(settings, TRUE);						//webkit default: True
+	//webkit_settings_set_enable_webaudio(settings, TRUE);							//webkit default: True
+	//webkit_settings_set_enable_webgl(settings, TRUE);								//webkit default: True
+	webkit_settings_set_enable_webrtc(settings, TRUE);							//webkit default: False
+	//webkit_settings_set_enable_write_console_messages_to_stdout(settings, FALSE);	//webkit default: False
+	//webkit_settings_set_enable_xss_auditor(settings, TRUE);						//webkit default: True
+	//webkit_settings_set_fantasy_font_family(settings, "serif");					//webkit default: "serif"
+	//webkit_settings_set_hardware_acceleration_policy(settings, WEBKIT_HARDWARE_ACCELERATION_POLICY_ALWAYS);//webkit default: WEBKIT_HARDWARE_ACCELERATION_POLICY_ALWAYS
 	webkit_settings_set_javascript_can_access_clipboard(settings, _javascriptClipboardAccessEnabled);//webkit default: False
 	webkit_settings_set_javascript_can_open_windows_automatically(settings, TRUE);		//webkit default: False
-	//webkit_websettings_set_load_icons_ignoring_image_load_setting(settings, FALSE);	//webkit default: False
-	//webkit_websettings_set_media_content_types_requiring_hardware_support(settings, None);//webkit default: None
-	//webkit_websettings_set_media_playback_allows_inline(settings, TRUE);				//webkit default: True
+	//webkit_settings_set_load_icons_ignoring_image_load_setting(settings, FALSE);	//webkit default: False
+	//webkit_settings_set_media_content_types_requiring_hardware_support(settings, None);//webkit default: None
+	webkit_settings_set_media_playback_allows_inline(settings, TRUE);				//webkit default: True
 	webkit_settings_set_media_playback_requires_user_gesture(settings, _mediaAutoplayEnabled);//webkit default: False
-	//webkit_websettings_set_minimum_font_size(settings, 0);							//webkit default: 0
-	//webkit_websettings_set_monospace_font_family(settings, "monospace");				//webkit default: "monospace"
-	//webkit_websettings_set_pictograph_font_family(settings, "serif");					//webkit default: "serif"
-	//webkit_websettings_set_print_backgrounds(settings, TRUE);							//webkit default: True
-	//webkit_websettings_set_sans_serif_font_family(settings, "sans-serif");			//webkit default: "sans-serif"
+	//webkit_settings_set_minimum_font_size(settings, 0);							//webkit default: 0
+	//webkit_settings_set_monospace_font_family(settings, "monospace");				//webkit default: "monospace"
+	//webkit_settings_set_pictograph_font_family(settings, "serif");					//webkit default: "serif"
+	//webkit_settings_set_print_backgrounds(settings, TRUE);							//webkit default: True
+	//webkit_settings_set_sans_serif_font_family(settings, "sans-serif");			//webkit default: "sans-serif"
 	webkit_settings_set_user_agent(settings, _userAgent);								//webkit default: None
 	//webkit_settings_set_zoom_text_only(settings, FALSE);								//webkit default: False
+
+	if (_browserControlInitParameters != NULL && strlen(_browserControlInitParameters) > 0)
+		Photino::set_webkit_customsettings(settings);		//if any custom init parameters were passed, set them now.
+}
+
+void Photino::set_webkit_customsettings(WebKitSettings* settings)
+{
+	//TODO: parse the JSON out of _browserControlInitParameters
+
+	//open the webkit2gtk library dynamically
+	void* handle = dlopen("libwebkit2gtk-4.0.so", RTLD_LAZY);
+	if (handle == NULL) {
+		GtkWidget* dialog = gtk_message_dialog_new(
+			nullptr, GTK_DIALOG_DESTROY_WITH_PARENT, GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE, "Could not load webkit2.so library.");
+		gtk_dialog_run(GTK_DIALOG(dialog));
+		gtk_widget_destroy(dialog);
+	}
+
+	std::string fName = (std::string)"webkit_settings_" + (std::string)"set_enable_developer_extras";
+	char* functionName = (char*)fName.c_str();
+
+	//GtkWidget* dialog = gtk_message_dialog_new(
+	//	nullptr, GTK_DIALOG_DESTROY_WITH_PARENT, GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE, fName);
+	//gtk_dialog_run(GTK_DIALOG(dialog));
+	//gtk_widget_destroy(dialog);
+
+	bool isBool = true;
+	bool isString = false;
+	bool isInt = false;
+
+	// Get a function pointer from the library and call it.
+	if (isBool)
+	{
+		bool boolValue = true;
+
+		void (*example_function)(WebKitSettings*, bool) = (void (*)(WebKitSettings*, bool))dlsym(handle, functionName);
+		if (example_function == NULL) {
+			GtkWidget* dialog = gtk_message_dialog_new(
+				nullptr, GTK_DIALOG_DESTROY_WITH_PARENT, GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE, "Could not dynamically load function %s.", functionName);
+			gtk_dialog_run(GTK_DIALOG(dialog));
+			gtk_widget_destroy(dialog);
+		}
+
+		example_function(settings, boolValue);
+	}
+	else if (isString)
+	{
+		char* stringValue = (char*)"sans-serif";
+
+		void (*example_function)(WebKitSettings*, char*) = (void (*)(WebKitSettings*, char*))dlsym(handle, functionName);
+		if (example_function == NULL) {
+			GtkWidget* dialog = gtk_message_dialog_new(
+				nullptr, GTK_DIALOG_DESTROY_WITH_PARENT, GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE, "Could not dynamically load function %s.", functionName);
+			gtk_dialog_run(GTK_DIALOG(dialog));
+			gtk_widget_destroy(dialog);
+		}
+
+		example_function(settings, stringValue);
+	}
+	else if (isInt)
+	{
+		int intValue = 16;
+
+		void (*example_function)(WebKitSettings*, int) = (void (*)(WebKitSettings*, int))dlsym(handle, functionName);
+		if (example_function == NULL) {
+			GtkWidget* dialog = gtk_message_dialog_new(
+				nullptr, GTK_DIALOG_DESTROY_WITH_PARENT, GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE, "Could not dynamically load function %s.", functionName);
+			gtk_dialog_run(GTK_DIALOG(dialog));
+			gtk_widget_destroy(dialog);
+		}
+
+		example_function(settings, intValue);
+	}
+
+	dlclose(handle);
 }
 
 gboolean on_configure_event(GtkWidget *widget, GdkEvent *event, gpointer self)
@@ -877,10 +965,10 @@ gboolean on_webview_context_menu(WebKitWebView *web_view, GtkWidget *default_men
 
 gboolean on_permission_request(WebKitWebView *web_view, WebKitPermissionRequest *request, gpointer user_data)
 {
-	GtkWidget *dialog = gtk_message_dialog_new(
-		nullptr, GTK_DIALOG_DESTROY_WITH_PARENT, GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE, "Permission Requested - Allowing!");
-	gtk_dialog_run(GTK_DIALOG(dialog));
-	gtk_widget_destroy(dialog);
+	//GtkWidget *dialog = gtk_message_dialog_new(
+	//	nullptr, GTK_DIALOG_DESTROY_WITH_PARENT, GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE, "Permission Requested - Allowing!");
+	//gtk_dialog_run(GTK_DIALOG(dialog));
+	// gtk_widget_destroy(dialog);
 
 	webkit_permission_request_allow(request);
 	return FALSE;

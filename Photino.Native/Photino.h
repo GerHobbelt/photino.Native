@@ -16,11 +16,13 @@ typedef char *AutoString;
 #include <WebKit/WebKit.h>
 #include <Foundation/Foundation.h>
 #include <UserNotifications/UserNotifications.h>
-// #include <WebKit/WKPreferences.h>
+#include <WebKit/WKWebView.h>
+#include <WebKit/WKWebViewConfiguration.h>
 #endif
 
 #ifdef __linux__
 #include <gtk/gtk.h>
+#include <webkit2/webkit2.h>
 #endif
 
 #include <map>
@@ -66,6 +68,8 @@ struct PhotinoInitParams
 	char *TemporaryFilesPath;
 	wchar_t* UserAgentWide;
 	char * UserAgent;
+	wchar_t* BrowserControlInitParametersWide;
+	char* BrowserControlInitParameters;
 
 	Photino *ParentInstance;
 
@@ -135,7 +139,10 @@ private:
 	AutoString _windowTitle;
 	AutoString _iconFileName;
 	AutoString _userAgent;
+	AutoString _browserControlInitParameters;
 
+	bool _devToolsEnabled;
+	bool _grantBrowserPermissions;
 	bool _mediaAutoplayEnabled;
 	bool _fileSystemAccessEnabled;
 	bool _webSecurityEnabled;
@@ -158,48 +165,66 @@ private:
 	bool EnsureWebViewIsInstalled();
 	bool InstallWebView2();
 	void AttachWebView();
-	int _minWidth;
-	int _minHeight;
-	int _maxWidth;
-	int _maxHeight;
 #elif __linux__
 	// GtkWidget* _window;
 	GtkWidget *_webview;
 	GdkGeometry _hints;
 	void AddCustomSchemeHandlers();
 	bool _isFullScreen;
-	int _minWidth;
-	int _minHeight;
-	int _maxWidth;
-	int _maxHeight;
 #elif __APPLE__
 	NSWindow *_window;
 	WKWebView *_webview;
 	WKWebViewConfiguration *_webviewConfiguration;
 	std::vector<Monitor *> GetMonitors();
+	
+	bool _chromeless;
+
+	int _preMaximizedWidth;
+	int _preMaximizedHeight;
+	int _preMaximizedXPosition;
+	int _preMaximizedYPosition;
+
 	void AttachWebView();
 	void AddCustomScheme(AutoString scheme, WebResourceRequestedCallback requestHandler);
-	BOOL _chromeless;
+
+
+	void SetGrantBrowserPermissions(bool enabled);
+	void SetUserAgent(AutoString userAgent);
+	void SetWebSecurityEnabled(bool enabled);
+	void SetJavascriptClipboardAccessEnabled(bool enabled);
+	void SetMediaStreamEnabled(bool enabled);
+
+    // Exposed in Photino.NET, but unsupported on macOS:
+	// void SetMediaAutoplayEnabled(bool enabled);
+	// void SetFileSystemAccessEnabled(bool enabled);
+	// void SetSmoothScrollingEnabled(bool enabled);
 #endif
 
 public:
 	bool _contextMenuEnabled;
-	bool _devToolsEnabled;
-	bool _grantBrowserPermissions;
-	
+
 #ifdef _WIN32
 	static void Register(HINSTANCE hInstance);
 	static void SetWebView2RuntimePath(AutoString pathToWebView2);
 	HWND getHwnd();
 	void RefitContent();
 	void FocusWebView2();
+	int _minWidth;
+	int _minHeight;
+	int _maxWidth;
+	int _maxHeight;
 #elif __linux__
 	void set_webkit_settings();
+	void set_webkit_customsettings(WebKitSettings* settings);
 	GtkWidget *_window;
 	int _lastHeight;
 	int _lastWidth;
 	int _lastTop;
 	int _lastLeft;
+	int _minWidth;
+	int _minHeight;
+	int _maxWidth;
+	int _maxHeight;
 #elif __APPLE__
 	static void Register();
 #endif
@@ -242,8 +267,8 @@ public:
 
 	void SetContextMenuEnabled(bool enabled);
 	void SetDevToolsEnabled(bool enabled);
-	void SetFullScreen(bool fullScreen);
 	void SetIconFile(AutoString filename);
+	void SetFullScreen(bool fullScreen);
 	void SetMaximized(bool maximized);
 	void SetMaxSize(int width, int height);
 	void SetMinimized(bool minimized);
