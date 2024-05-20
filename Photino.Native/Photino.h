@@ -85,6 +85,10 @@ struct PhotinoInitParams
 	int Width;
 	int Height;
 	int Zoom;
+	int MinWidth;
+	int MinHeight;
+	int MaxWidth;
+	int MaxHeight;
 
 	bool CenterOnInitialize;
 	bool Chromeless;
@@ -141,6 +145,7 @@ private:
 #elif __linux__
 	// GtkWidget* _window;
 	GtkWidget *_webview;
+	GdkGeometry _hints;
 	void AddCustomSchemeHandlers();
 	bool _isFullScreen;
 
@@ -158,13 +163,18 @@ public:
 	bool _contextMenuEnabled;
 	bool _devToolsEnabled;
 	bool _grantBrowserPermissions;
-
+	
 #ifdef _WIN32
 	static void Register(HINSTANCE hInstance);
 	static void SetWebView2RuntimePath(AutoString pathToWebView2);
 	HWND getHwnd();
 	void RefitContent();
 	void FocusWebView2();
+
+	int _minWidth;
+	int _minHeight;
+	int _maxWidth;
+	int _maxHeight;
 #elif __linux__
 	GtkWidget *_window;
 	int _lastHeight;
@@ -210,7 +220,9 @@ public:
 	void SetGrantBrowserPermissions(bool grant);
 	void SetIconFile(AutoString filename);
 	void SetMaximized(bool maximized);
+	void SetMaxSize(int width, int height);
 	void SetMinimized(bool minimized);
+	void SetMinSize(int width, int height);
 	void SetPosition(int x, int y);
 	void SetResizable(bool resizable);
 	void SetSize(int width, int height);

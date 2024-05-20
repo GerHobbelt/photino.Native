@@ -18,8 +18,8 @@ namespace PhotinoNET
         {
             try
             {
-                //FluentStyle();
-                PropertyInitStyle();
+                FluentStyle();
+                //PropertyInitStyle();
             }
             catch (Exception ex)
             {
@@ -42,10 +42,12 @@ namespace PhotinoNET
                 .Load("wwwroot/main.html")
                 //.LoadRawString("<h1>Hello Photino!</h1>")
 
-                .SetChromeless(true)
+                //.SetChromeless(true)
                 //.SetFullScreen(true)
                 //.SetMaximized(true)
+                //.SetMaxSize(640, 480)
                 //.SetMinimized(true)
+                //.SetMinSize(320, 240)
                 //.SetResizable(false)
                 //.SetTopMost(true)
                 .SetUseOsDefaultLocation(false)
@@ -107,7 +109,11 @@ namespace PhotinoNET
                 //Chromeless = true,
                 //FullScreen = true,
                 //Maximized = true,
+                MaxWidth = 640,
+                MaxHeight = 480,
                 //Minimized = true,
+                MinWidth = 320,
+                MinHeight = 240,
                 //Resizable = false,
                 //TopMost = true,
                 //UseOsDefaultLocation = false,
@@ -318,7 +324,15 @@ namespace PhotinoNET
             }
             else if (string.Compare(message, "sendWebMessage", true) == 0)
             {
-                currentWindow.SendWebMessage("alert('web message');");
+                currentWindow.SendWebMessage("web message");
+            }
+            else if (string.Compare(message, "setMinSize", true) == 0)
+            {
+                currentWindow.SetMinSize(320, 240);
+            }
+            else if (string.Compare(message, "setMaxSize", true) == 0)
+            {
+                currentWindow.SetMaxSize(640, 480);
             }
             else if (string.Compare(message, "toastNotification", true) == 0)
             {
