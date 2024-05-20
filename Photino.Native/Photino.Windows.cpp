@@ -266,7 +266,9 @@ Photino::Photino(PhotinoInitParams* initParams)
 	this->_toastHandler = new WinToastHandler(this);
 	WinToast::instance()->initialize();
 	_dialog = new PhotinoDialog(this);
-	Photino::Show();
+
+	bool isAlreadyShown = initParams->Minimized || initParams->Maximized;
+	Photino::Show(isAlreadyShown);
 }
 
 Photino::~Photino()
@@ -748,7 +750,8 @@ void Photino::ShowNotification(AutoString title, AutoString body)
 		WinToastTemplate toast = WinToastTemplate(WinToastTemplate::ImageAndText02);
 		toast.setTextField(title, WinToastTemplate::FirstLine);
 		toast.setTextField(body, WinToastTemplate::SecondLine);
-		toast.setImagePath(this->_iconFileName);
+		if (this->_iconFileName != NULL)
+			toast.setImagePath(this->_iconFileName);
 		WinToast::instance()->showToast(toast, _toastHandler);
 	}
 }
@@ -1080,9 +1083,11 @@ void Photino::SetWebView2RuntimePath(AutoString pathToWebView2)
 	}
 }
 
-void Photino::Show()
+void Photino::Show(bool isAlreadyShown)
 {
-	ShowWindow(_hWnd, SW_SHOWDEFAULT);
+	if (!isAlreadyShown)
+		ShowWindow(_hWnd, SW_SHOWDEFAULT);	//causes maximized and minimized to not work
+
 	UpdateWindow(_hWnd);
 
 	// Strangely, it only works to create the webview2 *after* the window has been shown,
