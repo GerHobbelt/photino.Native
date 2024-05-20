@@ -151,6 +151,7 @@ Photino::Photino(PhotinoInitParams* initParams)
 	_javascriptClipboardAccessEnabled = initParams->JavascriptClipboardAccessEnabled;
 	_mediaStreamEnabled = initParams->MediaStreamEnabled;
 	_smoothScrollingEnabled = initParams->SmoothScrollingEnabled;
+    _ignoreCertificateErrorsEnabled = initParams->IgnoreCertificateErrorsEnabled;
 
 	_zoom = initParams->Zoom;
 	_minWidth = initParams->MinWidth;
@@ -510,6 +511,11 @@ void Photino::GetSmoothScrollingEnabled(bool* enabled)
 	*enabled = this->_smoothScrollingEnabled;
 }
 
+void Photino::GetIgnoreCertificateErrorsEnabled(bool* enabled)
+{
+	*enabled = this->_ignoreCertificateErrorsEnabled;
+}
+
 AutoString Photino::GetIconFileName()
 {
 	return this->_iconFileName;
@@ -844,6 +850,8 @@ void Photino::AttachWebView()
 		startupString += L"--enable-usermedia-screen-capturing ";
 	if (!_smoothScrollingEnabled)
 		startupString += L"--disable-smooth-scrolling ";
+	if (_ignoreCertificateErrorsEnabled)
+		startupString += L"--ignore-certificate-errors ";
 	if (_browserControlInitParameters != NULL)
 		startupString += _browserControlInitParameters;	//e.g.--hide-scrollbars
 
